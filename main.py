@@ -1,11 +1,15 @@
 from neo4j import GraphDatabase, RoutingControl
-from constants import *
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
+NEO4J_URI = os.environ.get("NEO4J_URI")
+NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
 
 URI = NEO4J_URI
 AUTH = (NEO4J_USERNAME, NEO4J_PASSWORD)
-
 
 def add_friend(driver, name, friend_name):
     driver.execute_query(
@@ -26,8 +30,11 @@ def print_friends(driver, name):
         print(record["friend.name"])
 
 
-with GraphDatabase.driver(URI, auth=AUTH) as driver:
-    add_friend(driver, "Arthur", "Guinevere")
-    add_friend(driver, "Arthur", "Lancelot")
-    add_friend(driver, "Arthur", "Merlin")
-    print_friends(driver, "Arthur")
+# with GraphDatabase.driver(URI, auth=AUTH) as driver:
+#     add_friend(driver, "Arthur", "Guinevere")
+#     add_friend(driver, "Arthur", "Lancelot")
+#     add_friend(driver, "Arthur", "Merlin")
+#     print_friends(driver, "Arthur")
+
+
+    

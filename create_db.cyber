@@ -1,0 +1,36 @@
+CREATE CONSTRAINT `uniq_wallet_addressId` IF NOT EXISTS
+FOR (n: wallet)
+REQUIRE (n.addressId ) IS UNIQUE;
+
+:param {
+  idsToSkip: []
+};
+
+LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/KellyUni/COS30049_DA/main/Assignment2/nodes.csv' AS row
+WITH row
+WHERE NOT row.addressId IN $idsToSkip AND NOT row.addressId IS NULL
+CALL {
+  WITH row
+  MERGE (n: `wallet` { `addressId`: row.`addressId` })
+  SET n.`block_timestamp` = toInteger(trim(row.`block_timestamp`))
+} IN TRANSACTIONS OF 10000 ROWS;
+
+// Create relationships a -`SENT_TO`-> b
+LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/KellyUni/COS30049_DA/main/Assignment2/relationships.csv' AS row
+WITH row 
+CALL {
+  WITH row
+  MATCH (source: wallet { addressId: row.from_address } )
+  MATCH (target: wallet { addressId: row.to_address } ) 
+  CREATE (source) - [r:`SENT_TO`] -> (target)
+} IN TRANSACTIONS OF 10000 ROWS;
+
+// Create relationships a -`RECEIVED_FROM`-> b
+LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/KellyUni/COS30049_DA/main/Assignment2/relationships.csv' AS row
+WITH row 
+CALL {
+  WITH row
+  MATCH (source: wallet { addressId: row.to_address } )
+  MATCH (target: wallet { addressId: row.from_address } ) 
+  CREATE (source) - [r:`RECEIVED_FROM`] -> (target)
+} IN TRANSACTIONS OF 10000 ROWS;
