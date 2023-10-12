@@ -123,7 +123,70 @@ def run_neo4j_query(address_id):
         driver.close()
         return result
     
-    
+def create_graph():
+    query = (
+        """
+        CREATE CONSTRAINT `uniq_wallet_addressId` IF NOT EXISTS
+        FOR (n: wallet)
+        REQUIRE (n.addressId ) IS UNIQUE;
+
+        :param {
+        idsToSkip: []
+        };
+
+        LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/KellyUni/COS30049_DA/main/Assignment2/nodes.csv' AS row
+        WITH row
+        WHERE NOT row.addressId IN $idsToSkip AND NOT row.addressId IS NULL
+        CALL {
+        WITH row
+        MERGE (n: `wallet` { `addressId`: row.`addressId` })
+        SET n.`type` = toString(trim(row.`type`))
+        SET n.`name` = toString(trim(row.`name`))
+        SET n.`dateCreated` = toString(trim(row.`dateCreated`))
+        } IN TRANSACTIONS OF 10000 ROWS;
+
+        // Create relationships a -`SENT_TO`-> b
+        LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/KellyUni/COS30049_DA/main/Assignment2/relationships.csv' AS row
+        WITH row 
+        CALL {
+        WITH row
+        MATCH (source: wallet { addressId: row.from_address } )
+        MATCH (target: wallet { addressId: row.to_address } )
+        CREATE (source) - [r:`SENT_TO`] -> (target)
+        SET r.`hash` = toString(trim(row.`hash`))
+        SET r.`value` = toString(trim(row.`value`))
+        SET r.`gas` = toInteger(trim(row.`gas`))
+        SET r.`gas_used` = toInteger(trim(row.`gas_used`))
+        SET r.`gas_price` = toInteger(trim(row.`gas_price`))
+        SET r.`transaction_fee` = toInteger(trim(row.`transaction_fee`))
+        SET r.`block_number` = toInteger(trim(row.`block_number`))
+        SET r.`block_timestamp` = toInteger(trim(row.`block_timestamp`))
+        } IN TRANSACTIONS OF 10000 ROWS;
+
+        // Create relationships a -`RECEIVED_FROM`-> b
+        LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/KellyUni/COS30049_DA/main/Assignment2/relationships.csv' AS row
+        WITH row 
+        CALL {
+        WITH row
+        MATCH (source: wallet { addressId: row.to_address } )
+        MATCH (target: wallet { addressId: row.from_address } )
+        CREATE (source) - [received:`RECEIVED_FROM`] -> (target)
+        SET received.`hash` = toString(trim(row.`hash`))
+        SET received.`value` = toString(trim(row.`value`))
+        SET received.`gas` = toInteger(trim(row.`gas`))
+        SET received.`gas_used` = toInteger(trim(row.`gas_used`))
+        SET received.`gas_price` = toInteger(trim(row.`gas_price`))
+        SET received.`transaction_fee` = toInteger(trim(row.`transaction_fee`))
+        SET received.`block_number` = toInteger(trim(row.`block_number`))
+        SET received.`block_timestamp` = toInteger(trim(row.`block_timestamp`))
+        } IN TRANSACTIONS OF 10000 ROWS;"""
+    )
+
+    # Create a Neo4j session and run the query
+    with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD)) as driver:
+        with driver.session() as session:
+            session.run(query)
+
 
 
 
