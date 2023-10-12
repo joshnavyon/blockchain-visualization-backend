@@ -17,13 +17,24 @@ NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
 
 def run_neo4j_query(address_id):
     query = (
-        "MATCH (wallet:wallet {addressId: $addressId})\n"
-        "OPTIONAL MATCH (wallet)-[s:RECEIVED_FROM]->(wallet_in)\n"
-        "OPTIONAL MATCH (wallet)-[r:SENT_TO]->(wallet_out)\n"
-        "WITH wallet, wallet_in, wallet_out, s, r\n"
-        "ORDER BY s.block_timestamp DESC\n"
-        "WITH wallet, wallet_in, wallet_out, COLLECT(DISTINCT s)[0] AS latest_in, COLLECT(DISTINCT r)[0] AS latest_out\n"
-        "RETURN wallet, wallet_in, wallet_out, latest_in, latest_out;"
+        """
+        MATCH (wallet:wallet {addressId: '0x8d08aad4b2bac2bb761ac4781cf62468c9ec47b4'})
+        OPTIONAL MATCH (wallet)-[s:RECEIVED_FROM]->(wallet_in)
+        OPTIONAL MATCH (wallet)-[r:SENT_TO]->(wallet_out)
+        WITH wallet, wallet_in, wallet_out, s, r
+        ORDER BY s.block_timestamp DESC
+        WITH wallet, wallet_in, wallet_out, COLLECT(DISTINCT s)[0] AS latest_sender, COLLECT(DISTINCT r)[0] AS latest_recipient
+        WITH wallet,
+        COLLECT(DISTINCT wallet_in) AS wallet_in_list,
+        COLLECT(DISTINCT wallet_out) AS wallet_out_list,
+        COLLECT(DISTINCT latest_sender) AS latest_in,
+        COLLECT(DISTINCT latest_recipient) AS latest_out
+        RETURN wallet,
+        wallet_in_list AS wallet_in,
+        wallet_out_list AS wallet_out,
+        latest_in AS latest_in,
+        latest_out AS latest_out;
+        """
     )
 
     result_json = {
@@ -45,67 +56,77 @@ def run_neo4j_query(address_id):
             
             result = list(session.run(query, addressId=address_id))  # Convert result to a list
 
+   
             if result:
                 record = result[0]
                 
-                if record["wallet"] is not None:
-                    main = result_json["main"]
-                    
-                    main["addressId"] = record["wallet"]["addressId"]
-                    main["type"] = record["wallet"]["type"]
-                    
+                for record in result:
 
-                    if record["latest_in"] is not None:
-                        for latest_in in record["latest_in"]:
-                            transaction_in = {
-                                
-                                "hash": latest_in["hash"],
-                                "value": latest_in["value"],
-                                "input": latest_in["input"],
-                                "transaction": latest_in["transaction"],
-                                "gas": latest_in["gas"],
-                                "gas_used": latest_in["gas_used"],
-                                "gas_price": latest_in["gas_price"],
-                                "transaction_fee": latest_in["transaction_fee"],
-                                "block_number": latest_in["block_number"],
-                                "block_timestamp": latest_in["block_timestamp"],
-                            }
-                            main["transactionsIn"].append(transaction_in)
+                    if record["wallet"] is not None:
+                        main = result_json["main"]
+                        main["id"] = record["wallet"]._element_id.split(":")[0]
+                        main["addressId"] = record["wallet"]["addressId"]
+                        main["name"] = record["wallet"]["name"]
+                        main["type"] = record["wallet"]["type"]
+                        main["dateCreated"] = record["wallet"]["dateCreated"]
 
-                    if record["latest_out"] is not None:
-                        for latest_out in result:
-                            transaction_out = {
-                                
-                                "hash": latest_out["latest_out"]["hash"],
-                                "value": latest_out["latest_out"]["value"],
-                                "input": latest_out["latest_out"]["input"],
-                                "transaction": latest_out["latest_out"]["transaction"],
-                                "gas": latest_out["latest_out"]["gas"],
-                                "gas_used": latest_out["latest_out"]["gas_used"],
-                                "gas_price": latest_out["latest_out"]["gas_price"],
-                                "transaction_fee": latest_out["latest_out"]["transaction_fee"],
-                                "block_number": latest_out["latest_out"]["block_number"],
-                                "block_timestamp": latest_out["latest_out"]["block_timestamp"],
-                            }
-                            main["transactionsOut"].append(transaction_out)
-
-                    if record["wallet_in"] is not None:
-                        for wallet_in in result:
-                            connected = {
-                                "addressId": wallet_in["wallet"]["addressId"],
-                                "name": wallet_in["wallet"]["name"],
-                            }
-                            result_json["connected"].append(connected)
                         
-                    if record["wallet_out"] is not None:
-                        for wallet_out in result:
-                            connected = {
-                                "addressId": wallet_out["wallet"]["addressId"],
-                                "name": wallet_out["wallet"]["name"],
-                            }
-                            result_json["connected"].append(connected)
 
-            # print(result_json)
+                        if record["latest_in"] is not None:
+                            for latest_in in record["latest_in"]:
+                                transaction_in = {
+                                    "hash": latest_in["hash"],
+                                    "value": latest_in["value"],
+                                    "input": latest_in["input"],
+                                    "transaction": latest_in["transaction"],
+                                    "gas": latest_in["gas"],
+                                    "gas_used": latest_in["gas_used"],
+                                    "gas_price": latest_in["gas_price"],
+                                    "transaction_fee": latest_in["transaction_fee"],
+                                    "block_number": latest_in["block_number"],
+                                    "block_timestamp": latest_in["block_timestamp"],
+                                }
+                                main["transactionsIn"].append(transaction_in)
+
+                        if record["latest_out"] is not None:
+                            for latest_out in record["latest_out"]:
+                                transaction_out = {      
+                                    # "id": latest_out["wallet"]._element_id.split(":")[0],                          
+                                    "hash": latest_out["hash"],
+                                    "value": latest_out["value"],
+                                    "input": latest_out["input"],
+                                    "transaction": latest_out["transaction"],
+                                    "gas": latest_out["gas"],
+                                    "gas_used": latest_out["gas_used"],
+                                    "gas_price": latest_out["gas_price"],
+                                    "transaction_fee": latest_out["transaction_fee"],
+                                    "block_number": latest_out["block_number"],
+                                    "block_timestamp": latest_out["block_timestamp"],
+                                }
+                                main["transactionsOut"].append(transaction_out)
+
+                        if record["wallet_in"] is not None:
+                            for wallet_in in record["wallet_in"]:
+                                connected = {
+                                    # "id": wallet_in._element_id.split(":")[0],
+                                    "addressId": wallet_in["addressId"],
+                                    "name": wallet_in["name"],
+                                }
+                                result_json["connected"].append(connected)
+                            
+                        if record["wallet_out"] is not None:
+                            print(record["wallet_out"])
+                            
+                            for wallet_out in record["wallet_out"]:
+                                print(wallet_out)
+                                connected = {
+                                    # "id": wallet_out._element_id.split(":")[0],
+                                    "addressId": wallet_out["addressId"],
+                                    "name": wallet_out["name"],
+                                }
+                                result_json["connected"].append(connected)
+
+            print(result_json)
             json_string = json.dumps(result_json, indent=2)
             print(json_string)
             
@@ -179,7 +200,8 @@ def create_graph():
         SET received.`transaction_fee` = toInteger(trim(row.`transaction_fee`))
         SET received.`block_number` = toInteger(trim(row.`block_number`))
         SET received.`block_timestamp` = toInteger(trim(row.`block_timestamp`))
-        } IN TRANSACTIONS OF 10000 ROWS;"""
+        } IN TRANSACTIONS OF 10000 ROWS;
+        """
     )
 
     # Create a Neo4j session and run the query
@@ -250,4 +272,4 @@ async def allwallet():
 
     return result
 
-run_neo4j_query("0x58f56615180a8eea4c462235d9e215f72484b4a3")
+run_neo4j_query("0x8d08aad4b2bac2bb761ac4781cf62468c9ec47b4")
