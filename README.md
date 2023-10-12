@@ -71,6 +71,7 @@ Meet the talented individuals behind this project:
 
      ```bash
      uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+     uvicorn main:app --reload   
      ```
 
 5. **Access the Application**: Open your web browser and navigate to `http://localhost:3000` to access the blockchain visualization website.
