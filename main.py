@@ -18,7 +18,7 @@ NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
 def run_neo4j_query(address_id):
     query = (
         """
-        MATCH (wallet:wallet {addressId: '0x8d08aad4b2bac2bb761ac4781cf62468c9ec47b4'})
+        MATCH (wallet:wallet {addressId: $addressId})
         OPTIONAL MATCH (wallet)-[s:RECEIVED_FROM]->(wallet_in)
         OPTIONAL MATCH (wallet)-[r:SENT_TO]->(wallet_out)
         WITH wallet, wallet_in, wallet_out, s, r
@@ -37,8 +37,9 @@ def run_neo4j_query(address_id):
         """
     )
 
-    result_json = {
-        "main": {
+
+
+    result_json = [{
             "id": None,
             "addressId": None,
             "name": None,
@@ -46,9 +47,8 @@ def run_neo4j_query(address_id):
             "dateCreated": None,
             "transactionsIn": [],
             "transactionsOut": []
-        },
-        "connected": []
-    }
+    }]
+
 
     # Create a Neo4j session and run the query
     with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD)) as driver:
@@ -63,18 +63,28 @@ def run_neo4j_query(address_id):
                 for record in result:
 
                     if record["wallet"] is not None:
-                        main = result_json["main"]
-                        main["id"] = record["wallet"]._element_id.split(":")[0]
-                        main["addressId"] = record["wallet"]["addressId"]
-                        main["name"] = record["wallet"]["name"]
-                        main["type"] = record["wallet"]["type"]
-                        main["dateCreated"] = record["wallet"]["dateCreated"]
+                        
+                        result_json[0]["id"] = record["wallet"]["id"]
+                        result_json[0]["addressId"] = record["wallet"]["addressId"]
+                        result_json[0]["name"] = record["wallet"]["name"]
+                        result_json[0]["type"] = record["wallet"]["type"]
+                        result_json[0]["dateCreated"] = record["wallet"]["dateCreated"]
 
                         
-
-                        if record["latest_in"] is not None:
+                        if record["wallet_in"] and record["latest_in"] is not None:
+                            id = []
+                            for wallet_in in record["wallet_in"]:
+                                connected = {
+                                   "id": wallet_in["id"],
+                                    "addressId": wallet_in["addressId"],
+                                    "name": wallet_in["name"],
+                                }
+                                id.append(wallet_in["id"])
+                                result_json.append(connected)
+                    
                             for latest_in in record["latest_in"]:
                                 transaction_in = {
+                                    "id": id.pop(0),
                                     "hash": latest_in["hash"],
                                     "value": latest_in["value"],
                                     "input": latest_in["input"],
@@ -86,12 +96,25 @@ def run_neo4j_query(address_id):
                                     "block_number": latest_in["block_number"],
                                     "block_timestamp": latest_in["block_timestamp"],
                                 }
-                                main["transactionsIn"].append(transaction_in)
+                                result_json[0]["transactionsIn"].append(transaction_in)
 
-                        if record["latest_out"] is not None:
+                        if record["wallet_out"] and record["latest_out"] is not None:
+                            id = []
+                            
+                            for wallet_out in record["wallet_out"]:
+                                
+                                connected = {
+                                    "id": wallet_out["id"],
+                                    "addressId": wallet_out["addressId"],
+                                    "name": wallet_out["name"],
+                                }
+                                id.append(wallet_out["id"])
+                                result_json.append(connected)
+
+
                             for latest_out in record["latest_out"]:
                                 transaction_out = {      
-                                    # "id": latest_out["wallet"]._element_id.split(":")[0],                          
+                                    "id": id.pop(0),                
                                     "hash": latest_out["hash"],
                                     "value": latest_out["value"],
                                     "input": latest_out["input"],
@@ -103,43 +126,13 @@ def run_neo4j_query(address_id):
                                     "block_number": latest_out["block_number"],
                                     "block_timestamp": latest_out["block_timestamp"],
                                 }
-                                main["transactionsOut"].append(transaction_out)
+                                result_json[0]["transactionsOut"].append(transaction_out)
 
-                        if record["wallet_in"] is not None:
-                            for wallet_in in record["wallet_in"]:
-                                connected = {
-                                    # "id": wallet_in._element_id.split(":")[0],
-                                    "addressId": wallet_in["addressId"],
-                                    "name": wallet_in["name"],
-                                }
-                                result_json["connected"].append(connected)
-                            
-                        if record["wallet_out"] is not None:
-                            print(record["wallet_out"])
-                            
-                            for wallet_out in record["wallet_out"]:
-                                print(wallet_out)
-                                connected = {
-                                    # "id": wallet_out._element_id.split(":")[0],
-                                    "addressId": wallet_out["addressId"],
-                                    "name": wallet_out["name"],
-                                }
-                                result_json["connected"].append(connected)
-
-            print(result_json)
-            json_string = json.dumps(result_json, indent=2)
-            print(json_string)
-            
-            # print(record["wallet_in"])
-            # print(record["wallet_out"])
-            # print(record["latest_in"])
-            # print(record["latest_out"])
-           
+            result = result_json
+            # result = json.dumps(result_json, indent=2)
 
             
-
-            # print(result_json)
-
+            
         session.close()
         driver.close()
         return result
@@ -263,13 +256,10 @@ async def getStudentId(student_id: int):
     return {"student_id": student_id}
 
 
-@app.get("/wallet")
-async def allwallet():
-    result = run_neo4j_query("0x58f56615180a8eea4c462235d9e215f72484b4a3")
-    for record in result:
-        print(record)
-   
+@app.get("/wallet/{address_id}")
+async def getWallet(address_id: str):
+    result = run_neo4j_query(address_id)
 
     return result
 
-run_neo4j_query("0x8d08aad4b2bac2bb761ac4781cf62468c9ec47b4")
+# run_neo4j_query("0x8d08aad4b2bac2bb761ac4781cf62468c9ec47b4")
