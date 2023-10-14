@@ -1,14 +1,13 @@
 from fastapi import FastAPI
 import os
 from dotenv import load_dotenv
-from neo4j import GraphDatabase, RoutingControl
-import json
+from neo4j import GraphDatabase
 
 load_dotenv()
 
 app = FastAPI()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 NEO4J_URI = os.environ.get("NEO4J_URI")
@@ -50,92 +49,98 @@ def run_neo4j_query(address_id):
     }]
 
 
+    
     # Create a Neo4j session and run the query
     with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD)) as driver:
-        with driver.session() as session:
-            
-            result = list(session.run(query, addressId=address_id))  # Convert result to a list
+    
 
-   
-            if result:
-                record = result[0]
+            with driver.session() as session:
                 
-                for record in result:
-
-                    if record["wallet"] is not None:
-                        
-                        result_json[0]["id"] = record["wallet"]["id"]
-                        result_json[0]["addressId"] = record["wallet"]["addressId"]
-                        result_json[0]["name"] = record["wallet"]["name"]
-                        result_json[0]["type"] = record["wallet"]["type"]
-                        result_json[0]["dateCreated"] = record["wallet"]["dateCreated"]
-
-                        
-                        if record["wallet_in"] and record["latest_in"] is not None:
-                            id = []
-                            for wallet_in in record["wallet_in"]:
-                                connected = {
-                                   "id": wallet_in["id"],
-                                    "addressId": wallet_in["addressId"],
-                                    "name": wallet_in["name"],
-                                }
-                                id.append(wallet_in["id"])
-                                result_json.append(connected)
+                result = list(session.run(query, addressId=address_id))  # Convert result to a list
+                print(result)
+    
+                if result:
+                    record = result[0]
                     
-                            for latest_in in record["latest_in"]:
-                                transaction_in = {
-                                    "id": id.pop(0),
-                                    "hash": latest_in["hash"],
-                                    "value": latest_in["value"],
-                                    "input": latest_in["input"],
-                                    "transaction": latest_in["transaction"],
-                                    "gas": latest_in["gas"],
-                                    "gas_used": latest_in["gas_used"],
-                                    "gas_price": latest_in["gas_price"],
-                                    "transaction_fee": latest_in["transaction_fee"],
-                                    "block_number": latest_in["block_number"],
-                                    "block_timestamp": latest_in["block_timestamp"],
-                                }
-                                result_json[0]["transactionsIn"].append(transaction_in)
+                    for record in result:
 
-                        if record["wallet_out"] and record["latest_out"] is not None:
-                            id = []
+
+                        if record["wallet"] is not None:
                             
-                            for wallet_out in record["wallet_out"]:
+                            result_json[0]["id"] = record["wallet"]["id"]
+                            result_json[0]["addressId"] = record["wallet"]["addressId"]
+                            result_json[0]["name"] = record["wallet"]["name"]
+                            result_json[0]["type"] = record["wallet"]["type"]
+                            result_json[0]["dateCreated"] = record["wallet"]["dateCreated"]
+
+                            
+                            if record["wallet_in"] and record["latest_in"] is not None:
+                                id = []
+                                for wallet_in in record["wallet_in"]:
+                                    connected = {
+                                    "id": wallet_in["id"],
+                                        "addressId": wallet_in["addressId"],
+                                        "name": wallet_in["name"],
+                                    }
+                                    id.append(wallet_in["id"])
+                                    result_json.append(connected)
+                        
+                                for latest_in in record["latest_in"]:
+                                    transaction_in = {
+                                        "id": id.pop(0),
+                                        "hash": latest_in["hash"],
+                                        "value": latest_in["value"],
+                                        "input": latest_in["input"],
+                                        "transaction": latest_in["transaction"],
+                                        "gas": latest_in["gas"],
+                                        "gas_used": latest_in["gas_used"],
+                                        "gas_price": latest_in["gas_price"],
+                                        "transaction_fee": latest_in["transaction_fee"],
+                                        "block_number": latest_in["block_number"],
+                                        "block_timestamp": latest_in["block_timestamp"],
+                                    }
+                                    result_json[0]["transactionsIn"].append(transaction_in)
+
+                            if record["wallet_out"] and record["latest_out"] is not None:
+                                id = []
                                 
-                                connected = {
-                                    "id": wallet_out["id"],
-                                    "addressId": wallet_out["addressId"],
-                                    "name": wallet_out["name"],
-                                }
-                                id.append(wallet_out["id"])
-                                result_json.append(connected)
+                                for wallet_out in record["wallet_out"]:
+                                    
+                                    connected = {
+                                        "id": wallet_out["id"],
+                                        "addressId": wallet_out["addressId"],
+                                        "name": wallet_out["name"],
+                                    }
+                                    id.append(wallet_out["id"])
+                                    result_json.append(connected)
 
 
-                            for latest_out in record["latest_out"]:
-                                transaction_out = {      
-                                    "id": id.pop(0),                
-                                    "hash": latest_out["hash"],
-                                    "value": latest_out["value"],
-                                    "input": latest_out["input"],
-                                    "transaction": latest_out["transaction"],
-                                    "gas": latest_out["gas"],
-                                    "gas_used": latest_out["gas_used"],
-                                    "gas_price": latest_out["gas_price"],
-                                    "transaction_fee": latest_out["transaction_fee"],
-                                    "block_number": latest_out["block_number"],
-                                    "block_timestamp": latest_out["block_timestamp"],
-                                }
-                                result_json[0]["transactionsOut"].append(transaction_out)
+                                for latest_out in record["latest_out"]:
+                                    transaction_out = {      
+                                        "id": id.pop(0),                
+                                        "hash": latest_out["hash"],
+                                        "value": latest_out["value"],
+                                        "input": latest_out["input"],
+                                        "transaction": latest_out["transaction"],
+                                        "gas": latest_out["gas"],
+                                        "gas_used": latest_out["gas_used"],
+                                        "gas_price": latest_out["gas_price"],
+                                        "transaction_fee": latest_out["transaction_fee"],
+                                        "block_number": latest_out["block_number"],
+                                        "block_timestamp": latest_out["block_timestamp"],
+                                    }
+                                    result_json[0]["transactionsOut"].append(transaction_out)
 
-            result = result_json
-            # result = json.dumps(result_json, indent=2)
+                    
+                    result = result_json
+                else:
+                    raise HTTPException(status_code=500, detail="Query failed")
+                # result = json.dumps(result_json, indent=2)
 
-            
-            
-        session.close()
-        driver.close()
-        return result
+                
+        
+            return result
+  
     
 def create_graph():
     query = (
@@ -262,4 +267,4 @@ async def getWallet(address_id: str):
 
     return result
 
-# run_neo4j_query("0x8d08aad4b2bac2bb761ac4781cf62468c9ec47b4")
+# run_neo4j_query("dawd")
