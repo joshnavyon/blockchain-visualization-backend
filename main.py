@@ -1,6 +1,9 @@
-from neo4j import GraphDatabase, RoutingControl
 import os
 from dotenv import load_dotenv
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from neo4j_function import run_neo4j_query
 
 load_dotenv()
 
@@ -8,33 +11,23 @@ NEO4J_URI = os.environ.get("NEO4J_URI")
 NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
 
-URI = NEO4J_URI
-AUTH = (NEO4J_USERNAME, NEO4J_PASSWORD)
 
-def add_friend(driver, name, friend_name):
-    driver.execute_query(
-        "MERGE (a:Person {name: $name}) "
-        "MERGE (friend:Person {name: $friend_name}) "
-        "MERGE (a)-[:KNOWS]->(friend)",
-        name=name, friend_name=friend_name, database_="neo4j",
-    )
+app = FastAPI()
 
+# Allow all origins during development, change this for production
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-def print_friends(driver, name):
-    records, _, _ = driver.execute_query(
-        "MATCH (a:Person)-[:KNOWS]->(friend) WHERE a.name = $name "
-        "RETURN friend.name ORDER BY friend.name",
-        name=name, database_="neo4j", routing_=RoutingControl.READ,
-    )
-    for record in records:
-        print(record["friend.name"])
+@app.get("/")
+async def funcTest1():
+    return "Hello, this is fastAPI data"
 
+@app.get("/wallet/{address_id}")
+async def getWallet(address_id: str):
+    result = run_neo4j_query(address_id, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
 
-# with GraphDatabase.driver(URI, auth=AUTH) as driver:
-#     add_friend(driver, "Arthur", "Guinevere")
-#     add_friend(driver, "Arthur", "Lancelot")
-#     add_friend(driver, "Arthur", "Merlin")
-#     print_friends(driver, "Arthur")
-
-
-    
+    return result
