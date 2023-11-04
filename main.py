@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from neo4j_function import run_neo4j_query
+from neo4j_function import run_neo4j_query, run_neo4j_query2
 
 load_dotenv()
 
@@ -29,5 +29,12 @@ async def funcTest1():
 @app.get("/wallet/{address_id}")
 async def getWallet(address_id: str):
     result = run_neo4j_query(address_id, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
+
+    return result
+
+
+@app.get("/wallet2/{address_id}")
+async def getWallet(address_id: str):
+    result = run_neo4j_query2(address_id, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
 
     return result
